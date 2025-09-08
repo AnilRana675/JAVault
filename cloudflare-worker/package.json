@@ -4,12 +4,13 @@
   "description": "JAVault Scraper Worker for Cloudflare",
   "main": "src/index.js",
   "scripts": {
+    "build": "echo 'No build step required for Cloudflare Worker'",
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy --env production",
+    "deploy": "wrangler deploy",
     "deploy:dev": "wrangler deploy --env development",
-    "tail": "wrangler tail --env production",
+    "tail": "wrangler tail",
     "setup-secrets": "npm run setup-secrets:prod",
-    "setup-secrets:prod": "echo 'Setting up production secrets...' && wrangler secret put INTERNAL_API_KEY --env production && wrangler secret put BACKEND_URL --env production"
+    "setup-secrets:prod": "echo 'Setting up production secrets...' && wrangler secret put INTERNAL_API_KEY && wrangler secret put BACKEND_URL"
   },
   "devDependencies": {
     "wrangler": "^3.78.0"

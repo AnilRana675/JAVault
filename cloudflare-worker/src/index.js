@@ -371,11 +371,16 @@ async function updateVideoStatus(video_code, status, backend_url, env, data = nu
       ...(failure_reason && { failure_reason })
     };
 
-    const response = await fetch(`${backend_url}/api/internal/update-status`, {
+    // Use environment variable or fallback
+    const apiKey = env.INTERNAL_API_KEY || env.JWT_SECRET || '0554da54b47b7b7bb10352051f352dde';
+    const backendUrl = backend_url || env.BACKEND_URL || 'https://javault.onrender.com';
+
+    const response = await fetch(`${backendUrl}/api/internal/update-status`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${env.INTERNAL_API_KEY || 'fallback-key'}`
+        'Authorization': `Bearer ${apiKey}`,
+        'X-API-Key': apiKey
       },
       body: JSON.stringify(updatePayload)
     });
