@@ -1,0 +1,30 @@
+name = "javault-scraper"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Production environment
+[env.production]
+name = "javault-scraper"
+route = "javault.tuchiha675.workers.dev/*"
+
+# Environment variables (set via wrangler secret)
+[env.production.vars]
+ENVIRONMENT = "production"
+CF_PROXY_URL = "https://javault.tuchiha675.workers.dev/v2?url="
+
+# Development environment  
+[env.development]
+name = "javault-scraper-dev"
+
+[env.development.vars]
+ENVIRONMENT = "development"
+CF_PROXY_URL = "http://localhost:8787/v2?url="
+
+# Scheduled events for job processing
+[triggers]
+crons = ["*/5 * * * *"]  # Run every 5 minutes
+
+# Secrets to be set via wrangler commands:
+# wrangler secret put INTERNAL_API_KEY --env production
+# wrangler secret put BACKEND_URL --env production

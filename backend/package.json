@@ -5,7 +5,10 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "build": "echo 'No build step required for Node.js backend'",
+    "deploy": "echo 'Deploy using git push to Render'",
+    "worker": "node queue/scrapeWorker.js"
   },
   "dependencies": {
     "axios": "^1.11.0",
