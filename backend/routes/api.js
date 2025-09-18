@@ -77,35 +77,42 @@ router.post('/scrape', async (req, res) => {
       { upsert: true, new: true }
     );
 
-    // Try to delegate to Cloudflare Worker first
+    // OPTION: Force local processing instead of Cloudflare Worker
+    const useLocalWorker = process.env.USE_LOCAL_WORKER === 'true' || false;
     let workerSuccess = false;
-    const cloudflareWorkerUrl = process.env.WORKER_URL || 'https://javault.tuchiha675.workers.dev';
     
-    try {
-      console.log(`Delegating ${normalizedCode} to Cloudflare Worker: ${cloudflareWorkerUrl}`);
+    if (!useLocalWorker) {
+      // Try to delegate to Cloudflare Worker first
+      const cloudflareWorkerUrl = process.env.WORKER_URL || 'https://javault.tuchiha675.workers.dev';
       
-      const workerResponse = await fetch(`${cloudflareWorkerUrl}/process-job`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ 
-          video_code: normalizedCode,
-          backend_url: process.env.NODE_ENV === 'production' 
-            ? 'https://javault.onrender.com' 
-            : 'http://localhost:5000'
-        })
-      });
-      
-      if (workerResponse.ok) {
-        workerSuccess = true;
-        console.log(`✅ Job delegated to Cloudflare Worker for ${normalizedCode}`);
-      } else {
-        const errorText = await workerResponse.text();
-        console.error(`❌ Cloudflare Worker failed: ${workerResponse.status} - ${errorText}`);
+      try {
+        console.log(`Delegating ${normalizedCode} to Cloudflare Worker: ${cloudflareWorkerUrl}`);
+        
+        const workerResponse = await fetch(`${cloudflareWorkerUrl}/process-job`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ 
+            video_code: normalizedCode,
+            backend_url: process.env.NODE_ENV === 'production' 
+              ? 'https://javault.onrender.com' 
+              : 'http://localhost:5000'
+          })
+        });
+        
+        if (workerResponse.ok) {
+          workerSuccess = true;
+          console.log(`✅ Job delegated to Cloudflare Worker for ${normalizedCode}`);
+        } else {
+          const errorText = await workerResponse.text();
+          console.error(`❌ Cloudflare Worker failed: ${workerResponse.status} - ${errorText}`);
+        }
+      } catch (workerError) {
+        console.error('❌ Failed to delegate to Cloudflare Worker:', workerError.message);
       }
-    } catch (workerError) {
-      console.error('❌ Failed to delegate to Cloudflare Worker:', workerError.message);
+    } else {
+      console.log(`🔧 Local worker mode enabled - skipping Cloudflare Worker delegation`);
     }
 
     // Fallback to local BullMQ queue if worker fails
@@ -136,7 +143,12 @@ router.post('/scrape', async (req, res) => {
       message: 'Video queued for processing',
       video_code: normalizedCode,
       status: 'queued',
-      processor: workerSuccess ? 'cloudflare-worker' : 'local-queue'
+      processor: workerSuccess ? 'cloudflare-worker' : 'local-queue',
+      video: {
+        video_code: normalizedCode,
+        status: 'queued',
+        _id: video._id
+      }
     });
 
   } catch (error) {

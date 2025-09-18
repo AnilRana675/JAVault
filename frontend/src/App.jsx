@@ -10,16 +10,30 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 
 function AdminAuthControls() {
+  const navigate = useNavigate();
   const { isAdmin, logout } = useAuth();
+  
   if (isAdmin) {
     return (
       <div className="flex items-center gap-2">
-        <span className="px-3 py-1 rounded-lg text-sm bg-green-500/20 text-green-300 border border-green-500/30 flex items-center gap-2"><Shield className="w-4 h-4" /> Admin</span>
-        <button onClick={logout} className="btn-ghost flex items-center gap-2"><LogOut className="w-4 h-4" /> Logout</button>
+        <span className="px-3 py-1 rounded-lg text-sm bg-green-500/20 text-green-300 border border-green-500/30 flex items-center gap-2">
+          <Shield className="w-4 h-4" /> Admin
+        </span>
+        <button onClick={logout} className="btn-ghost flex items-center gap-2">
+          <LogOut className="w-4 h-4" /> Logout
+        </button>
       </div>
     );
   }
-  return null;
+  
+  return (
+    <button 
+      onClick={() => navigate('/admin')} 
+      className="btn-ghost flex items-center gap-2"
+    >
+      <Shield className="w-4 h-4" /> Admin Login
+    </button>
+  );
 }
 
 function App() {
@@ -33,6 +47,8 @@ function App() {
 
   const { isConnected, subscribeToVideoUpdates } = useSocket();
 
+  const navigate = useNavigate();
+
   // Load initial videos
   useEffect(() => {
     loadVideos();
@@ -44,33 +60,54 @@ function App() {
       console.log('Received update:', eventType, data);
       
       switch (eventType) {
-        case 'started':
         case 'status-update':
           updateVideoInList(data.video_code, { status: data.status });
           showNotification(`Video ${data.video_code}: ${data.status}`, 'info');
           break;
         
-        case 'progress':
+        case 'queued':
           updateVideoInList(data.video_code, { 
-            status: 'processing',
-            progress: data.progress 
+            status: 'queued',
+            video_code: data.video_code
           });
+          showNotification(`Video ${data.video_code} queued for processing`, 'info');
           break;
         
         case 'completed':
-          updateVideoInList(data.video_code, {
-            ...data.video,
-            status: 'completed'
-          });
+          if (data.video) {
+            updateVideoInList(data.video_code, {
+              ...data.video,
+              status: 'completed'
+            });
+          } else {
+            updateVideoInList(data.video_code, { status: 'completed' });
+          }
           showNotification(`Video ${data.video_code} completed!`, 'success');
           break;
         
         case 'failed':
           updateVideoInList(data.video_code, {
             status: 'failed',
-            failure_reason: data.error
+            failure_reason: data.reason || data.failure_reason
           });
-          showNotification(`Video ${data.video_code} failed: ${data.error}`, 'error');
+          showNotification(`Video ${data.video_code} failed: ${data.reason || data.failure_reason}`, 'error');
+          break;
+
+        case 'updated':
+          if (data.video) {
+            updateVideoInList(data.video_code, data.video);
+          } else {
+            updateVideoInList(data.video_code, { 
+              status: data.status,
+              failure_reason: data.failure_reason
+            });
+          }
+          
+          if (data.status === 'completed') {
+            showNotification(`Video ${data.video_code} completed!`, 'success');
+          } else if (data.status === 'failed') {
+            showNotification(`Video ${data.video_code} failed: ${data.failure_reason}`, 'error');
+          }
           break;
       }
     });
@@ -117,9 +154,15 @@ function App() {
 
       const response = await videoAPI.scrapeVideo(videoCode);
       
-      // Add or update video in the list
+      // Add or update video in the list immediately
       if (response.video) {
         updateVideoInList(videoCode, response.video);
+      } else {
+        // Fallback: create a basic video entry
+        updateVideoInList(videoCode, {
+          video_code: videoCode,
+          status: response.status || 'queued'
+        });
       }
       
       showNotification(response.message || `Started processing ${videoCode}`, 'success');
@@ -148,15 +191,9 @@ function App() {
     });
   }, []);
 
-  const navigate = useNavigate ? useNavigate() : null;
-
   const handleVideoPlay = (video) => {
     if (!video || !video.video_code) return;
-    if (navigate) {
-      navigate(`/video/${video.video_code}`);
-    } else if (window) {
-      window.location.href = `/video/${video.video_code}`;
-    }
+    navigate(`/video/${video.video_code}`);
   };
 
   const handleClosePlayer = () => {
@@ -182,7 +219,7 @@ function App() {
       </div>
 
       {/* Header */}
-      <header className="relative backdrop-glass border-b border-white/10 sticky top-0 z-30">
+      <header className="backdrop-glass border-b border-white/10 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4 animate-fade-in-down">

@@ -54,15 +54,10 @@ export const useSocket = () => {
 
     const socket = socketRef.current;
 
-    // Listen for job status updates
-    socket.on('job-started', (data) => {
-      console.log('Job started:', data);
-      callback('started', data);
-    });
-
-    socket.on('job-progress', (data) => {
-      console.log('Job progress:', data);
-      callback('progress', data);
+    // Listen for job status updates (matching backend events)
+    socket.on('status-update', (data) => {
+      console.log('Status update:', data);
+      callback('status-update', data);
     });
 
     socket.on('job-completed', (data) => {
@@ -75,18 +70,23 @@ export const useSocket = () => {
       callback('failed', data);
     });
 
-    socket.on('status-update', (data) => {
-      console.log('Status update:', data);
-      callback('status-update', data);
+    socket.on('video-queued', (data) => {
+      console.log('Video queued:', data);
+      callback('queued', data);
+    });
+
+    socket.on('video-updated', (data) => {
+      console.log('Video updated:', data);
+      callback('updated', data);
     });
 
     // Return cleanup function
     return () => {
-      socket.off('job-started');
-      socket.off('job-progress');
+      socket.off('status-update');
       socket.off('job-completed');
       socket.off('job-failed');
-      socket.off('status-update');
+      socket.off('video-queued');
+      socket.off('video-updated');
     };
   };
 

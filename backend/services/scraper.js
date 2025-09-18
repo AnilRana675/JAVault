@@ -58,27 +58,51 @@ async function getHighestQualityStream(masterPlaylistUrl) {
  */
 async function interceptM3U8(targetUrl) {
   let browser;
+  const startTime = Date.now();
+  
   try {
-    console.log(`Launching browser to intercept: ${targetUrl}`);
+    console.log(`🚀 Launching browser to intercept: ${targetUrl}`);
     browser = await puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: [
+        '--no-sandbox', 
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-web-security',
+        '--disable-features=VizDisplayCompositor'
+      ],
+      timeout: 30000,
     });
+    
     const page = await browser.newPage();
+    
+    // Set a reasonable timeout for navigation
+    page.setDefaultNavigationTimeout(20000);
+    page.setDefaultTimeout(20000);
+    
+    // Set user agent to appear more like a real browser
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
     const capturedRequests = new Set();
 
     page.on('request', (request) => {
       if (request.url().includes('.m3u8')) {
+        console.log(`📹 Found M3U8 request: ${request.url()}`);
         capturedRequests.add(request.url());
       }
     });
 
-    await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 10000 });
+    console.log(`🌐 Navigating to: ${targetUrl}`);
+    await page.goto(targetUrl, { 
+      waitUntil: 'networkidle2', 
+      timeout: 20000 
+    });
 
-    console.log('Waiting for stream to load...');
+    console.log('⏳ Waiting for stream to load...');
     await new Promise(resolve => setTimeout(resolve, 10000));
-    console.log(`Done waiting. Found ${capturedRequests.size} m3u8 requests.`);
+    
+    const elapsedTime = Date.now() - startTime;
+    console.log(`⏱️ Browser operation completed in ${elapsedTime}ms. Found ${capturedRequests.size} m3u8 requests.`);
 
     if (capturedRequests.size === 0) {
       throw new Error('No .m3u8 links were intercepted.');
@@ -93,14 +117,21 @@ async function interceptM3U8(targetUrl) {
       masterPlaylistUrl = capturedRequests.values().next().value;
     }
     
+    console.log(`✅ Successfully found stream: ${masterPlaylistUrl}`);
     return masterPlaylistUrl;
 
   } catch (err) {
-    console.error(`Failed to intercept from ${targetUrl}:`, err.message);
+    const elapsedTime = Date.now() - startTime;
+    console.error(`❌ Failed to intercept from ${targetUrl} after ${elapsedTime}ms:`, err.message);
     return null;
   } finally {
     if (browser) {
-      await browser.close();
+      try {
+        await browser.close();
+        console.log('🔒 Browser closed successfully');
+      } catch (closeErr) {
+        console.error('Error closing browser:', closeErr.message);
+      }
     }
   }
 }
